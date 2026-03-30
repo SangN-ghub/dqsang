@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hệ Thống Ôn Thi Trắc Nghiệm - Cloud Sync</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        :root {
+            --primary: #4F46E5;
+            --primary-hover: #4338CA;
+            --primary-light: #EEF2FF;
+            --success: #10B981;
+            --success-bg: #D1FAE5;
+            --danger: #EF4444;
+            --danger-bg: #FEE2E2;
+            --warning: #F59E0B;
+            --background: #F3F4F6;
+            --surface: #FFFFFF;
+            --text: #1F2937;
+            --text-light: #6B7280;
+            --border: #E5E7EB;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--background); color: var(--text); line-height: 1.6; }
+
+        /* Navbar */
+        nav { background-color: var(--surface); padding: 1rem 2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        nav h1 { font-size: 1.5rem; color: var(--primary); cursor: pointer; }
+        .nav-links { display: flex; gap: 1rem; align-items: center;}
+
+        .btn { padding: 0.6rem 1.2rem; border: none; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; }
+        .btn-primary { background-color: var(--primary); color: white; }
+        .btn-primary:hover { background-color: var(--primary-hover); }
+        .btn-outline { background-color: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        .btn-outline:hover { background-color: var(--primary); color: white; }
+        .btn-success { background-color: transparent; border: 1px solid var(--success); color: var(--success); }
+        .btn-success:hover { background-color: var(--success); color: white; }
+        .btn-danger { background-color: transparent; border: 1px solid var(--danger); color: var(--danger); }
+        .btn-danger:hover { background-color: var(--danger); color: white; }
+        .btn-warning { background-color: var(--warning); color: white; }
+
+        .container { max-width: 1000px; margin: 2rem auto; padding: 0 1rem; transition: max-width 0.4s ease-in-out; }
+        .card { background-color: var(--surface); border-radius: 12px; padding: 2rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+
+        .view { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* Grid Lists */
+        .section-title { font-size: 1.2rem; font-weight: 600; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-top: 1.5rem; color: var(--primary); display: flex; justify-content: space-between; align-items: center;}
+        .quiz-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem; margin-top: 1rem; }
+        .quiz-card { border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; transition: transform 0.2s, box-shadow 0.2s; display: flex; flex-direction: column; justify-content: space-between; position: relative;}
+        .quiz-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border-color: var(--primary); }
+        .quiz-title { font-size: 1.15rem; font-weight: 600; margin-bottom: 0.5rem; line-height: 1.3;}
+        .quiz-meta { color: var(--text-light); font-size: 0.9rem; margin-bottom: 1.5rem; }
+        .badge-cloud { background: #DBEAFE; color: #1E40AF; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: bold; position: absolute; top: 10px; right: 10px;}
+        
+        /* Manager & Editor */
+        .create-quiz-form { display: flex; gap: 1rem; margin-bottom: 2rem; background: #f9fafb; padding: 1rem; border-radius: 8px; border: 1px dashed var(--border); flex-wrap: wrap;}
+        .manager-list .q-item { display: flex; justify-content: space-between; align-items: center; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 1rem;}
+        .form-group { margin-bottom: 1rem; }
+        .form-group label { display: block; margin-bottom: 0.5rem; font-weight: 500; }
+        .form-control { width: 100%; padding: 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; }
+        .option-edit-row { display: flex; align-items: center; gap: 1rem; margin-bottom: 0.5rem; }
+        .opt-correct-input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--success); }
+        .paste-zone { border: 2px dashed var(--border); padding: 1.5rem; text-align: center; border-radius: 8px; background-color: #f9fafb; color: var(--text-light); transition: all 0.2s; position: relative;}
+        .paste-zone.has-image { border-style: solid; border-color: var(--primary); background-color: #fff; padding: 0.5rem;}
+        .paste-zone img { max-width: 100%; max-height: 250px; border-radius: 6px; display: none; margin: 0 auto; object-fit: contain; }
+        .btn-remove-img { position: absolute; top: 10px; right: 10px; background: rgba(239, 68, 68, 0.9); color: white; border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; display: none; font-weight: bold;}
+        .q-item-edit { background: #f9fafb; padding: 1rem; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.5rem; }
+
+        /* Quiz Player Layout */
+        .quiz-layout { display: grid; grid-template-columns: 1fr 320px; gap: 2rem; align-items: start; }
+        @media (max-width: 850px) { .quiz-layout { grid-template-columns: 1fr; } }
+        
+        .quiz-main { background-color: var(--surface); border-radius: 12px; padding: 2.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        .quiz-sidebar { background-color: var(--surface); border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); position: sticky; top: 80px; }
+        
+        /* Question Navigator */
+        .nav-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.6rem; margin-top: 1rem; }
+        .nav-box { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; border: 1px solid var(--border); border-radius: 6px; font-weight: 600; font-size: 1rem; background: var(--surface); transition: all 0.2s; color: var(--text); cursor: pointer; user-select: none;}
+        .nav-box:hover:not(.current) { background-color: #F3F4F6; }
+        .nav-box.current { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); background: var(--surface); color: var(--primary); }
+        .nav-box.correct { background-color: var(--success); color: white; border-color: var(--success); }
+        .nav-box.wrong { background-color: var(--danger); color: white; border-color: var(--danger); }
+
+        .progress-container { width: 100%; height: 8px; background-color: var(--border); border-radius: 4px; margin-bottom: 2rem; overflow: hidden; }
+        .progress-bar { height: 100%; background-color: var(--primary); width: 0%; transition: width 0.3s ease; }
+        .quiz-header { display: flex; justify-content: space-between; margin-bottom: 1rem; color: var(--text-light); font-weight: 500; font-size: 1.1rem;}
+        .question-text { font-size: 1.3rem; font-weight: 600; margin-bottom: 1.5rem; line-height: 1.5;}
+        .quiz-image { max-width: 100%; max-height: 350px; border-radius: 8px; margin-bottom: 1.5rem; display: none; object-fit: contain; border: 1px solid var(--border); }
+        
+        .options-container { display: flex; flex-direction: column; gap: 0.8rem; }
+        .option-btn { width: 100%; text-align: left; padding: 1.2rem 1.5rem; border: 2px solid var(--border); background-color: var(--surface); border-radius: 8px; font-size: 1.05rem; cursor: pointer; transition: all 0.2s; position: relative;}
+        .option-btn:hover:not(.disabled) { background-color: #f9fafb; border-color: #d1d5db; }
+        .option-btn.selected { border-color: var(--primary); background-color: var(--primary-light); }
+        .option-btn.disabled { cursor: not-allowed; }
+        .option-btn.correct { background-color: var(--success-bg); border-color: var(--success); color: #065F46; }
+        .option-btn.wrong { background-color: var(--danger-bg); border-color: var(--danger); color: #991B1B; }
+        
+        .explanation-box { margin-top: 2rem; padding: 1.2rem; border-radius: 8px; background-color: #F3F4F6; border-left: 4px solid var(--primary); display: none; animation: fadeIn 0.3s; font-size: 1.05rem;}
+        .controls-container { margin-top: 2rem; text-align: right; border-top: 1px solid var(--border); padding-top: 1.5rem; }
+        
+        .result-container { text-align: center; max-width: 800px; margin: 0 auto;}
+        .score-text { font-size: 4rem; font-weight: 700; color: var(--primary); margin: 1rem 0; }
+        
+        #loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.8); display: none; justify-content: center; align-items: center; z-index: 1000; font-size: 1.2rem; font-weight: bold; color: var(--primary);}
+    </style>
+</head>
+<body>
+
+    <div id="loading-overlay">Đang tải dữ liệu từ Server...</div>
+
+    <nav>
+        <h1 onclick="switchView('home')">QuizMaster Cloud</h1>
+        <div class="nav-links">
+            <button class="btn btn-outline" onclick="switchView('home')">Trang Chủ</button>
+            <button class="btn btn-outline" onclick="switchView('manager')">Cá Nhân</button>
+            <button id="btn-admin-login" class="btn btn-warning" onclick="loginAdmin()">🔒 Admin</button>
+        </div>
+    </nav>
+
+    <div class="container" id="main-container">
+        <!-- 1. HOME -->
+        <div id="home" class="view active">
+            <div class="card">
+                <h2>Chọn bộ đề để ôn thi</h2>
+                
+                <div class="section-title">
+                    <span>🌐 Bộ Đề Chung (Từ Server)</span>
+                    <button class="btn btn-outline" style="font-size:0.8rem; padding: 0.3rem 0.6rem;" onclick="fetchCloudQuizzes()">🔄 Làm mới</button>
+                </div>
+                <div id="cloud-quiz-list" class="quiz-grid"></div>
+
+                <div class="section-title" style="margin-top: 3rem;">💻 Bộ Đề Cá Nhân (Local)</div>
+                <div id="local-quiz-list" class="quiz-grid"></div>
+            </div>
+        </div>
+
+        <!-- 2. MANAGER -->
+        <div id="manager" class="view">
+            <div class="card">
+                <h2 style="margin-bottom: 1.5rem;">Quản Lý Bộ Đề Cá Nhân</h2>
+                <div class="create-quiz-form">
+                    <input type="text" id="new-quiz-title" class="form-control" style="flex: 1; min-width: 200px;" placeholder="Nhập tên bộ đề mới...">
+                    <button class="btn btn-primary" onclick="createNewLocalQuiz()">+ Tạo Đề Mới</button>
+                    <div style="width: 1px; background: var(--border); margin: 0 0.5rem;"></div>
+                    <input type="file" id="import-local-file" accept=".json" style="display: none;" onchange="importLocalQuiz(event)">
+                    <button class="btn btn-success" onclick="document.getElementById('import-local-file').click()">📂 Nạp JSON cá nhân</button>
+                </div>
+                <div id="local-manager-list" class="manager-list"></div>
+            </div>
+        </div>
+
+        <!-- 3. ADMIN PANEL -->
+        <div id="admin-panel" class="view">
+            <div class="card">
+                <h2 style="color: var(--warning); margin-bottom: 1rem;">🔒 Quản Trị Server</h2>
+                <div style="background: #FFFBEB; padding: 1.5rem; border: 1px solid #FCD34D; border-radius: 8px; margin-bottom: 2rem;">
+                    <h4 style="margin-bottom: 1rem;">Tải Đề Lên Server</h4>
+                    <input type="file" id="upload-cloud-file" accept=".json" style="display: none;" onchange="uploadToCloud(event)">
+                    <button class="btn btn-warning" onclick="document.getElementById('upload-cloud-file').click()">☁️ Chọn file JSON & Đẩy lên Server</button>
+                </div>
+                <div id="admin-cloud-list" class="manager-list"></div>
+            </div>
+        </div>
+
+        <!-- 4. EDITOR -->
+        <div id="editor" class="view">
+            <div class="card">
+                <button class="btn btn-outline" style="padding: 0.3rem 0.6rem; font-size: 0.85rem; margin-bottom: 1rem;" onclick="switchView('manager')">⬅ Quay lại</button>
+                <h2 id="editor-quiz-title" style="margin-bottom: 1.5rem;">Tên Bộ Đề</h2>
+                <div style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border);">
+                    <h3 id="editor-form-title" style="margin-bottom: 1rem; color: var(--primary);">Thêm Câu Hỏi Mới</h3>
+                    <form id="question-form" onsubmit="saveQuestion(event)">
+                        <input type="hidden" id="edit-q-index" value="-1">
+                        <div class="form-group"><label>Câu hỏi:</label><textarea id="q-text" class="form-control" rows="2" required></textarea></div>
+                        <div class="form-group">
+                            <label>Hình ảnh đính kèm (Nhấn <kbd>Ctrl+V</kbd> để dán ảnh):</label>
+                            <div class="paste-zone" id="paste-zone">
+                                <span id="paste-text">📸 Click vào đây và ấn Ctrl+V</span>
+                                <img id="q-image-preview" src="">
+                                <button type="button" class="btn-remove-img" id="btn-remove-img" onclick="removeImage()">✕</button>
+                                <input type="hidden" id="q-image-base64" value="">
+                            </div>
+                        </div>
+                        <div class="form-group" style="display: flex; gap: 1rem; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 1rem;">
+                            <label style="margin: 0;">Loại câu hỏi:</label>
+                            <select id="q-type" class="form-control" style="width: auto;" onchange="toggleQuestionType()">
+                                <option value="single">1 Đáp án đúng (Nút Tròn)</option>
+                                <option value="multiple">Nhiều đáp án đúng (Ô Vuông)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="options-group">
+                            <label>Các đáp án (Tích ĐÚNG bên trái):</label>
+                            <div class="option-edit-row"><input type="radio" name="correct" class="opt-correct-input" value="0" checked> <input type="text" id="q-opt-0" class="form-control" required></div>
+                            <div class="option-edit-row"><input type="radio" name="correct" class="opt-correct-input" value="1"> <input type="text" id="q-opt-1" class="form-control" required></div>
+                            <div class="option-edit-row"><input type="radio" name="correct" class="opt-correct-input" value="2"> <input type="text" id="q-opt-2" class="form-control" required></div>
+                            <div class="option-edit-row"><input type="radio" name="correct" class="opt-correct-input" value="3"> <input type="text" id="q-opt-3" class="form-control" required></div>
+                        </div>
+                        <div class="form-group"><label>Giải thích chi tiết:</label><textarea id="q-exp" class="form-control" rows="2" required></textarea></div>
+                        <div style="display: flex; gap: 1rem;">
+                            <button type="submit" class="btn btn-primary">Lưu Câu Hỏi</button>
+                            <button type="button" class="btn btn-outline" onclick="resetQuestionForm()">Làm mới</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="question-list" id="q-list"></div>
+            </div>
+        </div>
+
+        <!-- 5. QUIZ PLAYER (SPLIT LAYOUT) -->
+        <div id="quiz" class="view">
+            <div class="quiz-layout">
+                <!-- Cột trái: Nội dung câu hỏi -->
+                <div class="quiz-main">
+                    <div class="progress-container"><div class="progress-bar" id="progress-bar"></div></div>
+                    <div class="quiz-header"><span id="quiz-playing-title" style="color: var(--primary); font-weight: 600;"></span><span id="q-counter"></span></div>
+                    
+                    <div class="question-text" id="quiz-question"></div>
+                    <img id="quiz-image-display" class="quiz-image" src="" alt="">
+                    <p id="quiz-hint" style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 1rem; display: none;"><i>* Hãy chọn tất cả các ý đúng rồi ấn Xác nhận.</i></p>
+                    
+                    <div class="options-container" id="quiz-options"></div>
+                    
+                    <div class="explanation-box" id="quiz-explanation"><strong>💡 Giải thích:</strong> <span id="exp-text"></span></div>
+                    
+                    <div class="controls-container" id="controls-box" style="display: none;">
+                        <button id="btn-submit" class="btn btn-outline" style="display: none;" onclick="submitMultipleChoice()">Xác Nhận Đáp Án</button>
+                        <button id="btn-next" class="btn btn-primary" style="display: none;" onclick="nextQuestion()">Câu Tiếp Theo</button>
+                    </div>
+                </div>
+
+                <!-- Cột phải: Bảng điều hướng câu hỏi -->
+                <div class="quiz-sidebar">
+                    <h3 style="font-size: 1.1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-bottom: 1rem;">Tiến độ bài làm</h3>
+                    
+                    <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                        <div style="display:flex; align-items:center; gap:0.3rem;"><span style="width:12px; height:12px; background:var(--success); border-radius:3px;"></span> Đúng</div>
+                        <div style="display:flex; align-items:center; gap:0.3rem;"><span style="width:12px; height:12px; background:var(--danger); border-radius:3px;"></span> Sai</div>
+                        <div style="display:flex; align-items:center; gap:0.3rem;"><span style="width:12px; height:12px; border:1px solid var(--border); border-radius:3px;"></span> Chưa làm</div>
+                    </div>
+
+                    <div id="quiz-nav-grid" class="nav-grid"></div>
+                    
+                    <!-- Nút nộp bài hiển thị ở sidebar -->
+                    <button class="btn btn-warning" style="width: 100%; margin-top: 2rem;" onclick="showResult()">Nộp Bài / Xem Kết Quả</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 6. RESULT -->
+        <div id="result" class="view">
+            <div class="card result-container">
+                <h2>Hoàn Thành Bài Thi!</h2>
+                <div class="score-text" id="final-score">0/0</div>
+                <p id="result-message" style="margin-bottom: 2rem; color: var(--text-light);"></p>
+                <div style="display: flex; gap: 1rem; justify-content: center;">
+                    <button class="btn btn-outline" onclick="switchView('home')">Về Trang Chủ</button>
+                    <button class="btn btn-primary" onclick="retryQuiz()">Làm Lại Đề Này (Trộn Câu)</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        const API_URL = ""; 
+        const ADMIN_PASSWORD = "admin";
+        // ==========================================
+
+        let localQuizzes = [];
+        let cloudQuizzes = [];
+        let isAdmin = false;
+        
+        let activeQuizId = null; 
+        let currentPlayingQuiz = null;
+        let currentQuestionIndex = 0; 
+        
+        // Tracking Arrays
+        let questionResults = []; // 'correct', 'wrong', null
+        let userSelections = []; // Lưu lại mảng index đáp án người dùng đã chọn cho từng câu
+
+        function showLoading(show) { document.getElementById('loading-overlay').style.display = show ? 'flex' : 'none'; }
+
+        // --- LOCAL & CLOUD DATA ---
+        function loadLocalData() {
+            const savedData = localStorage.getItem('localQuizzesDB');
+            if (savedData) localQuizzes = JSON.parse(savedData); else localQuizzes = [];
+        }
+        function saveLocalData() { localStorage.setItem('localQuizzesDB', JSON.stringify(localQuizzes)); }
+
+        async function fetchCloudQuizzes() {
+            if (!API_URL) {
+                const fakeCloud = localStorage.getItem('fakeCloudDB');
+                cloudQuizzes = fakeCloud ? JSON.parse(fakeCloud) : [];
+                renderHomeQuizzes(); if(isAdmin) renderAdminPanel(); return;
+            }
+            try {
+                showLoading(true);
+                const response = await fetch(API_URL);
+                if (!response.ok) throw new Error("Lỗi kết nối");
+                cloudQuizzes = await response.json();
+            } catch (error) { console.error(error); } 
+            finally { showLoading(false); renderHomeQuizzes(); if(isAdmin) renderAdminPanel(); }
+        }
+
+        async function uploadToCloud(event) {
+            const file = event.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const importedQuiz = JSON.parse(e.target.result); ensureCompatibility([importedQuiz]);
+                    if(!API_URL) {
+                        importedQuiz.id = Date.now().toString(); cloudQuizzes.push(importedQuiz);
+                        localStorage.setItem('fakeCloudDB', JSON.stringify(cloudQuizzes)); alert("Đã đẩy lên Server (Mô phỏng).");
+                        fetchCloudQuizzes(); return;
+                    }
+                    showLoading(true); delete importedQuiz.id; 
+                    const response = await fetch(API_URL, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(importedQuiz) });
+                    if (!response.ok) throw new Error("Lỗi khi upload");
+                    alert("✅ Tải lên Server thành công!"); fetchCloudQuizzes();
+                } catch (err) { alert("❌ Lỗi: " + err.message); } finally { showLoading(false); }
+            }; reader.readAsText(file); event.target.value = '';
+        }
+
+        async function deleteCloudQuiz(id) {
+            if(!confirm("XÓA bộ đề này KHỎI SERVER CHUNG?")) return;
+            if(!API_URL) { cloudQuizzes = cloudQuizzes.filter(q => q.id !== id); localStorage.setItem('fakeCloudDB', JSON.stringify(cloudQuizzes)); fetchCloudQuizzes(); return; }
+            try { showLoading(true); await fetch(`${API_URL}/${id}`, { method: 'DELETE' }); fetchCloudQuizzes(); } 
+            catch(e) { alert("Lỗi xóa"); } finally { showLoading(false); }
+        }
+
+        function ensureCompatibility(quizArray) {
+            quizArray.forEach(quiz => quiz.questions.forEach(q => {
+                if(!q.type) q.type = (typeof q.correct === 'number' || q.correct.length === 1) ? 'single' : 'multiple';
+                if(typeof q.correct === 'number') q.correct = [q.correct];
+            }));
+        }
+
+        // --- NAVIGATION ---
+        function loginAdmin() {
+            if(isAdmin) { switchView('admin-panel'); return; }
+            const pass = prompt("Nhập mật khẩu Admin:");
+            if (pass === ADMIN_PASSWORD) { isAdmin = true; document.getElementById('btn-admin-login').innerText = "🔓 Admin Panel"; switchView('admin-panel'); } 
+            else if(pass !== null) { alert("Mật khẩu sai!"); }
+        }
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            
+            const container = document.getElementById('main-container');
+            container.style.maxWidth = viewId === 'quiz' ? '1400px' : '1000px';
+            
+            if (viewId === 'home') { renderHomeQuizzes(); fetchCloudQuizzes(); }
+            if (viewId === 'manager') renderLocalManager();
+            if (viewId === 'admin-panel') renderAdminPanel();
+        }
+
+        function renderHomeQuizzes() {
+            const cloudDiv = document.getElementById('cloud-quiz-list');
+            cloudDiv.innerHTML = cloudQuizzes.length === 0 ? `<p style="color:gray;">Chưa có bộ đề chung nào.</p>` : '';
+            cloudQuizzes.forEach(q => { cloudDiv.innerHTML += `<div class="quiz-card" style="border-color: #93C5FD; background: #F8FAFC;"><span class="badge-cloud">☁️ Cloud</span><div><div class="quiz-title">${q.title}</div><div class="quiz-meta">${q.questions.length} câu</div></div><button class="btn btn-primary" style="width: 100%;" onclick="startQuiz('${q.id}', 'cloud')">Làm Bài Ngay</button></div>`; });
+
+            const localDiv = document.getElementById('local-quiz-list');
+            localDiv.innerHTML = localQuizzes.length === 0 ? `<p style="color:gray;">Bạn chưa có bộ đề cá nhân.</p>` : '';
+            localQuizzes.forEach(q => { localDiv.innerHTML += `<div class="quiz-card"><div><div class="quiz-title">${q.title}</div><div class="quiz-meta">${q.questions.length} câu</div></div><button class="btn btn-outline" style="width: 100%;" onclick="startQuiz('${q.id}', 'local')">Làm Bài Ngay</button></div>`; });
+        }
+
+        function renderLocalManager() {
+            const listDiv = document.getElementById('local-manager-list'); listDiv.innerHTML = '';
+            localQuizzes.forEach(quiz => { listDiv.innerHTML += `<div class="q-item"><div style="flex: 1;"><strong style="font-size: 1.1rem;">${quiz.title}</strong><br><small style="color:gray;">${quiz.questions.length} câu</small></div><div style="display: flex; gap: 0.5rem; flex-wrap: wrap;"><button class="btn btn-outline" onclick="openEditor('${quiz.id}')">📝 Sửa Đề</button><button class="btn btn-success" onclick="exportJSON('${quiz.id}')">📥 JSON</button><button class="btn btn-danger" onclick="deleteLocalQuiz('${quiz.id}')">Xóa</button></div></div>`; });
+        }
+        function createNewLocalQuiz() { const title = document.getElementById('new-quiz-title').value.trim(); if (!title) return alert("Nhập tên bộ đề!"); localQuizzes.push({ id: "local_" + Date.now(), title: title, questions: [] }); saveLocalData(); document.getElementById('new-quiz-title').value = ''; renderLocalManager(); }
+        function deleteLocalQuiz(id) { if(confirm("Xóa đề này khỏi máy bạn?")) { localQuizzes = localQuizzes.filter(q => q.id !== id); saveLocalData(); renderLocalManager(); } }
+        function exportJSON(id) { const quiz = localQuizzes.find(q => q.id === id); const dl = document.createElement('a'); dl.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(quiz, null, 2))); dl.setAttribute("download", (quiz.title.replace(/[^a-zA-Z0-9]/g, '_') || 'quiz') + ".json"); document.body.appendChild(dl); dl.click(); dl.remove(); }
+        function importLocalQuiz(event) { const file = event.target.files[0]; if (!file) return; const reader = new FileReader(); reader.onload = function(e) { try { const q = JSON.parse(e.target.result); ensureCompatibility([q]); q.id = "local_" + Date.now(); localQuizzes.push(q); saveLocalData(); renderLocalManager(); alert("Nạp đề thành công!"); } catch (err) { alert("Lỗi JSON"); } }; reader.readAsText(file); event.target.value = ''; }
+        function renderAdminPanel() { const listDiv = document.getElementById('admin-cloud-list'); listDiv.innerHTML = ''; cloudQuizzes.forEach(quiz => { listDiv.innerHTML += `<div class="q-item"><div style="flex: 1;"><strong style="font-size: 1.1rem;">${quiz.title}</strong><br><small style="color:gray;">${quiz.questions.length} câu</small></div><div><button class="btn btn-danger" onclick="deleteCloudQuiz('${quiz.id}')">🗑️ Xóa</button></div></div>`; }); }
+
+        // --- EDITOR LOGIC ---
+        document.addEventListener('paste', function(e) {
+            if (!document.getElementById('editor').classList.contains('active')) return;
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            for (let index in items) {
+                if (items[index].kind === 'file' && items[index].type.includes('image')) {
+                    const reader = new FileReader();
+                    reader.onload = function(event) { document.getElementById('q-image-preview').src = event.target.result; document.getElementById('q-image-preview').style.display = 'block'; document.getElementById('paste-text').style.display = 'none'; document.getElementById('btn-remove-img').style.display = 'block'; document.getElementById('paste-zone').classList.add('has-image'); document.getElementById('q-image-base64').value = event.target.result; };
+                    reader.readAsDataURL(items[index].getAsFile());
+                }
+            }
+        });
+        function removeImage() { document.getElementById('q-image-preview').src = ''; document.getElementById('q-image-preview').style.display = 'none'; document.getElementById('paste-text').style.display = 'block'; document.getElementById('btn-remove-img').style.display = 'none'; document.getElementById('paste-zone').classList.remove('has-image'); document.getElementById('q-image-base64').value = ''; }
+        function toggleQuestionType() { const type = document.getElementById('q-type').value; const inputs = document.querySelectorAll('.opt-correct-input'); inputs.forEach(input => { input.type = type === 'single' ? 'radio' : 'checkbox'; input.checked = false; }); if(type === 'single') inputs[0].checked = true; }
+        function openEditor(quizId) { activeQuizId = quizId; document.getElementById('editor-quiz-title').innerText = localQuizzes.find(q => q.id === quizId).title; resetQuestionForm(); renderQuestionList(); switchView('editor'); }
+        function renderQuestionList() { const listDiv = document.getElementById('q-list'); const quiz = localQuizzes.find(q => q.id === activeQuizId); listDiv.innerHTML = `<h3>Danh sách câu hỏi (${quiz.questions.length})</h3>`; quiz.questions.forEach((q, index) => { const typeBadge = q.type === 'multiple' ? '<span class="badge badge-multi">Nhiều đáp án</span>' : '<span class="badge badge-single">1 Đáp án</span>'; listDiv.innerHTML += `<div class="q-item-edit"><div style="margin-bottom: 0.5rem;"><strong>Câu ${index + 1}:</strong> ${q.question} ${typeBadge}</div>${q.image ? `<div style="color:var(--primary); font-size:0.8rem;">[Kèm hình ảnh]</div>` : ''}<div style="color: var(--success); font-size: 0.9rem; margin: 0.5rem 0;">Đ/A Đúng: ${q.correct.map(i => String.fromCharCode(65 + i)).join(', ')}</div><div style="display: flex; gap: 0.5rem;"><button class="btn btn-outline" onclick="editQuestion(${index})">Sửa</button><button class="btn btn-danger" onclick="deleteQuestion(${index})">Xóa</button></div></div>`; }); }
+        function saveQuestion(e) { e.preventDefault(); let correctArr = []; document.querySelectorAll('.opt-correct-input:checked').forEach(cb => correctArr.push(parseInt(cb.value))); if(correctArr.length === 0) return alert("Chọn ít nhất 1 đáp án đúng!"); const newQ = { type: document.getElementById('q-type').value, question: document.getElementById('q-text').value, image: document.getElementById('q-image-base64').value, options: [ document.getElementById('q-opt-0').value, document.getElementById('q-opt-1').value, document.getElementById('q-opt-2').value, document.getElementById('q-opt-3').value ], correct: correctArr, explanation: document.getElementById('q-exp').value }; const quiz = localQuizzes.find(q => q.id === activeQuizId); const editIndex = parseInt(document.getElementById('edit-q-index').value); if (editIndex === -1) quiz.questions.push(newQ); else quiz.questions[editIndex] = newQ; saveLocalData(); resetQuestionForm(); renderQuestionList(); }
+        function editQuestion(index) { const q = localQuizzes.find(q => q.id === activeQuizId).questions[index]; document.getElementById('edit-q-index').value = index; document.getElementById('q-text').value = q.question; document.getElementById('q-type').value = q.type || 'single'; toggleQuestionType(); removeImage(); if(q.image) { document.getElementById('q-image-preview').src = q.image; document.getElementById('q-image-preview').style.display = 'block'; document.getElementById('paste-text').style.display = 'none'; document.getElementById('btn-remove-img').style.display = 'block'; document.getElementById('paste-zone').classList.add('has-image'); document.getElementById('q-image-base64').value = q.image; } q.options.forEach((opt, i) => document.getElementById(`q-opt-${i}`).value = opt); document.querySelectorAll('.opt-correct-input').forEach((cb, idx) => cb.checked = q.correct.includes(idx)); document.getElementById('q-exp').value = q.explanation; window.scrollTo({ top: 0, behavior: 'smooth' }); }
+        function deleteQuestion(index) { if(confirm("Xóa câu hỏi này?")) { localQuizzes.find(q => q.id === activeQuizId).questions.splice(index, 1); saveLocalData(); renderQuestionList(); } }
+        function resetQuestionForm() { document.getElementById('question-form').reset(); document.getElementById('edit-q-index').value = -1; document.getElementById('q-type').value = 'single'; toggleQuestionType(); removeImage(); }
+
+        // --- PLAY QUIZ LOGIC (JUMP AROUND ENABLED) ---
+        function shuffleArray(array) { for (let i = array.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [array[i], array[j]] = [array[j], array[i]]; } }
+
+        function startQuiz(quizId, source) {
+            let originalQuiz = source === 'cloud' ? cloudQuizzes.find(q => q.id === quizId) : localQuizzes.find(q => q.id === quizId);
+            if (!originalQuiz || originalQuiz.questions.length === 0) return alert("Bộ đề trống!");
+
+            currentPlayingQuiz = JSON.parse(JSON.stringify(originalQuiz)); 
+            shuffleArray(currentPlayingQuiz.questions);
+            
+            questionResults = new Array(currentPlayingQuiz.questions.length).fill(null);
+            userSelections = new Array(currentPlayingQuiz.questions.length).fill(null);
+
+            document.getElementById('quiz-playing-title').innerText = currentPlayingQuiz.title;
+            currentQuestionIndex = 0; 
+            switchView('quiz'); 
+            loadQuizQuestion();
+        }
+
+        // Bấm số để nhảy cóc câu hỏi
+        function jumpToQuestion(index) {
+            currentQuestionIndex = index;
+            loadQuizQuestion();
+        }
+
+        function renderNavGrid() {
+            const grid = document.getElementById('quiz-nav-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < currentPlayingQuiz.questions.length; i++) {
+                const box = document.createElement('div');
+                box.className = 'nav-box';
+                box.innerText = i + 1;
+                
+                box.onclick = () => jumpToQuestion(i);
+
+                if (i === currentQuestionIndex) box.classList.add('current');
+                if (questionResults[i] === 'correct') box.classList.add('correct');
+                else if (questionResults[i] === 'wrong') box.classList.add('wrong');
+                
+                grid.appendChild(box);
+            }
+        }
+
+        function loadQuizQuestion() {
+            renderNavGrid();
+
+            const q = currentPlayingQuiz.questions[currentQuestionIndex];
+            const totalQ = currentPlayingQuiz.questions.length;
+            
+            document.getElementById('progress-bar').style.width = `${((currentQuestionIndex + 1) / totalQ) * 100}%`;
+            document.getElementById('q-counter').innerText = `Câu ${currentQuestionIndex + 1} / ${totalQ}`;
+            document.getElementById('quiz-question').innerText = q.question;
+
+            const imgEl = document.getElementById('quiz-image-display');
+            if(q.image) { imgEl.src = q.image; imgEl.style.display = 'block'; } else { imgEl.style.display = 'none'; imgEl.src = ''; }
+
+            const optionsContainer = document.getElementById('quiz-options');
+            optionsContainer.innerHTML = '';
+            
+            const hasAnswered = questionResults[currentQuestionIndex] !== null;
+
+            q.options.forEach((opt, index) => {
+                const btn = document.createElement('button');
+                btn.className = 'option-btn';
+                btn.innerHTML = `<strong>${String.fromCharCode(65 + index)}.</strong> ${opt}`;
+                
+                // NẾU CÂU HỎI ĐÃ TỪNG LÀM RỒI
+                if (hasAnswered) {
+                    btn.classList.add('disabled');
+                    const savedSelection = userSelections[currentQuestionIndex] || [];
+                    
+                    if (q.correct.includes(index)) {
+                        btn.classList.add('correct'); // Đáp án đúng luôn tô xanh
+                    } else if (savedSelection.includes(index)) {
+                        btn.classList.add('wrong'); // Nếu chọn sai thì tô đỏ
+                    }
+                } else {
+                    // CÂU HỎI CHƯA LÀM
+                    btn.onclick = () => handleOptionClick(btn, index, q.type);
+                }
+                optionsContainer.appendChild(btn);
+            });
+
+            // Hiển thị UI giải thích & Nút chuyển câu dựa theo trạng thái đã làm hay chưa
+            if (hasAnswered) {
+                document.getElementById('exp-text').innerText = q.explanation;
+                document.getElementById('quiz-explanation').style.display = 'block';
+                document.getElementById('controls-box').style.display = 'block';
+                document.getElementById('btn-submit').style.display = 'none';
+                document.getElementById('quiz-hint').style.display = 'none';
+
+                const nextBtn = document.getElementById('btn-next');
+                if (currentQuestionIndex < currentPlayingQuiz.questions.length - 1) {
+                    nextBtn.innerText = "Câu Tiếp Theo";
+                    nextBtn.onclick = nextQuestion;
+                    nextBtn.style.display = 'inline-block';
+                } else {
+                    nextBtn.style.display = 'none'; // Đã ở câu cuối cùng thì ẩn nút next, người dùng có thể ấn Nộp bài ở sidebar
+                }
+            } else {
+                document.getElementById('quiz-explanation').style.display = 'none';
+                document.getElementById('controls-box').style.display = q.type === 'multiple' ? 'block' : 'none';
+                document.getElementById('btn-submit').style.display = q.type === 'multiple' ? 'inline-block' : 'none';
+                document.getElementById('btn-next').style.display = 'none';
+                document.getElementById('quiz-hint').style.display = q.type === 'multiple' ? 'block' : 'none';
+            }
+        }
+
+        function handleOptionClick(btn, index, type) {
+            if (btn.classList.contains('disabled')) return;
+            if (type === 'single') evaluateSingleChoice(index);
+            else btn.classList.toggle('selected');
+        }
+
+        function evaluateSingleChoice(selectedIndex) {
+            const q = currentPlayingQuiz.questions[currentQuestionIndex];
+            
+            userSelections[currentQuestionIndex] = [selectedIndex]; // Lưu lựa chọn
+
+            let isCorrect = q.correct.includes(selectedIndex);
+            questionResults[currentQuestionIndex] = isCorrect ? 'correct' : 'wrong';
+
+            loadQuizQuestion(); // Load lại câu hỏi để tự render màu sắc và giải thích
+        }
+
+        function submitMultipleChoice() {
+            const q = currentPlayingQuiz.questions[currentQuestionIndex];
+            const optionBtns = document.querySelectorAll('.option-btn');
+            
+            let selectedIndexes = [];
+            optionBtns.forEach((btn, idx) => { if(btn.classList.contains('selected')) selectedIndexes.push(idx); });
+            if(selectedIndexes.length === 0) return alert("Vui lòng chọn ít nhất 1 đáp án!");
+            
+            userSelections[currentQuestionIndex] = selectedIndexes; // Lưu lựa chọn
+
+            let isCorrect = selectedIndexes.length === q.correct.length && selectedIndexes.every(val => q.correct.includes(val));
+            questionResults[currentQuestionIndex] = isCorrect ? 'correct' : 'wrong';
+
+            loadQuizQuestion(); // Load lại UI
+        }
+
+        function nextQuestion() {
+            if (currentQuestionIndex < currentPlayingQuiz.questions.length - 1) {
+                currentQuestionIndex++;
+                loadQuizQuestion();
+            }
+        }
+
+        function showResult() {
+            // Xác nhận nộp bài nếu còn câu chưa làm
+            const unanswered = questionResults.filter(r => r === null).length;
+            if (unanswered > 0) {
+                if (!confirm(`Bạn còn ${unanswered} câu chưa làm. Bạn có chắc chắn muốn nộp bài?`)) return;
+            }
+            
+            // Tính điểm dựa trên số câu 'correct'
+            score = questionResults.filter(r => r === 'correct').length;
+
+            switchView('result');
+            document.getElementById('final-score').innerText = `${score} / ${currentPlayingQuiz.questions.length}`;
+            
+            const percent = score / currentPlayingQuiz.questions.length;
+            if (percent === 1) document.getElementById('result-message').innerText = "Tuyệt đỉnh! Bạn đúng hoàn toàn 💯";
+            else if (percent >= 0.7) document.getElementById('result-message').innerText = "Làm tốt lắm, kiến thức của bạn khá vững!";
+            else document.getElementById('result-message').innerText = "Hãy xem lại giải thích các câu sai và cố gắng hơn nhé!";
+        }
+
+        function retryQuiz() { startQuiz(currentPlayingQuiz.id, currentPlayingQuiz.id.toString().includes('local') ? 'local' : 'cloud'); }
+
+        // --- INIT ---
+        loadLocalData();
+        fetchCloudQuizzes();
+        
+    </script>
+</body>
+</html>
